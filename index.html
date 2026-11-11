@@ -1,0 +1,826 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AmoralTiny</title>
+<meta name="description" content="AmoralTiny: делаю проекты вместе с ИИ, учу Python и C++.">
+<meta name="theme-color" content="#0b0a08">
+<link rel="icon" id="fav" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Onest:wght@400;500&family=Unbounded:wght@500;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0b0a08;
+    --ink-2: #16140f;
+    --bone: #ebe5d6;
+    --dim: rgba(235, 229, 214, .58);
+    --line: rgba(235, 229, 214, .16);
+    --amber: #ffa51f;
+    --display: "Unbounded", "Arial Black", "Segoe UI", sans-serif;
+    --text: "Onest", "Segoe UI", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --pad: clamp(20px, 6vw, 96px);
+    --gx: 50%;
+    --gy: 45%;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: var(--ink); touch-action: pan-y; -webkit-text-size-adjust: 100%; overflow-x: hidden; overflow-x: clip; }
+  body {
+    background: var(--ink);
+    color: var(--bone);
+    font: 400 17px/1.5 var(--text);
+    overflow-x: hidden; overflow-x: clip;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+
+  /* атмосфера: тёплое пятно света за карточкой и зерно */
+  .glow {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: radial-gradient(46vmax 46vmax at var(--gx) var(--gy), rgba(var(--glow, 255, 165, 31), var(--glow-a, .14)), transparent 70%);
+  }
+  .grain {
+    position: fixed; inset: -50%; z-index: 5; pointer-events: none; opacity: .09; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  #gl { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 1; display: block; pointer-events: none; }
+
+  .mono { font: 500 12px/1.3 var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+
+  /* шапка */
+  .top {
+    position: fixed; z-index: 4; top: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 22px var(--pad);
+  }
+  .top a { text-decoration: none; }
+  .top .who { display: flex; align-items: center; gap: 10px; }
+  .top .who i { width: 10px; height: 10px; border-radius: 3px; background: var(--amber); display: block; }
+  .top .tg { padding: 10px 14px; border: 1px solid var(--line); border-radius: 999px; transition: border-color .2s, color .2s; }
+  .top .tg:hover, .top .tg:focus-visible { border-color: var(--amber); color: var(--amber); }
+
+  /* индикатор разделов */
+  .rail {
+    position: fixed; z-index: 4; right: var(--pad); top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; gap: 14px; list-style: none;
+  }
+  .rail a { display: flex; align-items: center; justify-content: flex-end; gap: 10px; color: var(--dim); text-decoration: none; transition: color .25s; }
+  .rail a span { opacity: 0; transform: translateX(6px); transition: opacity .25s, transform .25s; }
+  .rail a::after { content: ""; width: 18px; height: 1px; background: currentColor; transition: width .25s; }
+  .rail a:hover span, .rail a:focus-visible span { opacity: 1; transform: none; }
+  .rail a.on { color: var(--amber); }
+  .rail a.on::after { width: 36px; }
+  .bar { position: fixed; z-index: 4; left: 0; top: 0; height: 2px; width: 100%; background: var(--amber); transform-origin: 0 50%; transform: scaleX(0); display: none; }
+
+  /* разделы */
+  .s {
+    position: relative; min-height: 100vh; min-height: 100svh;
+    display: flex; align-items: center;
+    padding: 96px var(--pad) 72px;
+    cursor: grab;
+  }
+  body.dragging, body.dragging .s { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+  .copy { position: relative; z-index: 2; width: min(40vw, 520px); cursor: auto; }
+  .copy .eyebrow { color: var(--amber); margin-bottom: 22px; display: flex; gap: 12px; align-items: center; }
+  .copy .eyebrow::before { content: ""; width: 28px; height: 1px; background: currentColor; }
+  h2 {
+    font: 800 clamp(30px, 4.3vw, 64px)/1.02 var(--display);
+    letter-spacing: -.025em; margin-bottom: 26px; text-wrap: balance;
+  }
+  .copy p { color: var(--dim); max-width: 44ch; }
+  .copy p + p { margin-top: 14px; }
+  .copy p b { color: var(--bone); font-weight: 500; }
+
+  /* первый экран */
+  .hero { align-items: flex-end; justify-content: space-between; gap: 24px; overflow: hidden; }
+  .hero h1 {
+    position: absolute; z-index: 0; left: 0; right: 0; top: 50%; transform: translateY(-52%);
+    text-align: center; pointer-events: none;
+    font: 800 clamp(48px, 15.2vw, 300px)/.86 var(--display);
+    letter-spacing: -.045em; text-transform: uppercase;
+    color: #1f1c16;
+  }
+  .hero .copy { width: min(46vw, 420px); }
+  .hero .lead { color: var(--bone); font-size: clamp(18px, 1.6vw, 22px); line-height: 1.35; }
+  .hero .hint { position: relative; z-index: 2; color: var(--dim); text-align: right; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+  .hero .hint .k { color: var(--bone); display: flex; gap: 10px; align-items: center; }
+  .hero .hint .k::before { content: ""; width: 26px; height: 12px; border: 1px solid currentColor; border-radius: 3px; animation: nudge 2.4s ease-in-out infinite; }
+  @keyframes nudge { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+
+  /* списки */
+  .list { list-style: none; border-top: 1px solid var(--line); }
+  .item {
+    display: grid; grid-template-columns: 3.2em 1fr auto; gap: 4px 14px; align-items: baseline;
+    padding: 16px 0 16px 0; border-bottom: 1px solid var(--line);
+    cursor: pointer; position: relative; transition: padding-left .25s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .item::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--amber); transform: scaleY(0); transition: transform .25s; }
+  .item.on { padding-left: 14px; }
+  .item.on::before { transform: scaleY(1); }
+  .item .n { color: var(--dim); font-variant-numeric: tabular-nums; }
+  .item.on .n { color: var(--amber); }
+  .item .t { font: 500 clamp(18px, 1.7vw, 24px)/1.15 var(--display); letter-spacing: -.01em; }
+  .item .tag { color: var(--amber); white-space: nowrap; }
+  .item .d { grid-column: 2 / -1; color: var(--dim); font-size: 15px; }
+
+  /* цифры */
+  .stats { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); }
+  .stats b { display: block; font: 800 clamp(34px, 4vw, 60px)/1 var(--display); color: var(--amber); font-variant-numeric: tabular-nums; letter-spacing: -.03em; }
+  .stats span { display: block; margin-top: 8px; color: var(--dim); }
+
+  /* живой код */
+  .code {
+    margin-top: 18px; padding: 14px 16px; min-height: 8.6em;
+    background: rgba(235, 229, 214, .05); border: 1px solid var(--line); border-radius: 10px;
+    font: 400 13px/1.55 var(--mono); color: var(--bone); white-space: pre-wrap; overflow: hidden;
+  }
+  .code::before { content: attr(data-lang); display: block; color: var(--amber); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 6px; }
+  .code i { display: inline-block; width: .55em; height: 1.05em; background: var(--amber); vertical-align: text-bottom; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* бегущая строка */
+  .ticker { position: relative; z-index: 2; overflow: hidden; border-block: 1px solid var(--line); padding: 18px 0; background: rgba(11, 10, 8, .6); }
+  .ticker div { display: flex; width: max-content; animation: run 38s linear infinite; }
+  .ticker.rev div { animation-direction: reverse; }
+  .ticker span { font: 500 clamp(22px, 3.2vw, 46px)/1 var(--display); letter-spacing: -.02em; white-space: nowrap; padding-right: .6em; color: var(--bone); }
+  .ticker span:nth-child(even) { color: var(--amber); }
+  @keyframes run { to { transform: translateX(-50%); } }
+
+  .item .tag.live::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: currentColor; margin-right: 7px; animation: blink 1.4s steps(1) infinite; }
+  body.horror .item.on::before { background: #ff2a1a; }
+  body.horror .item.on .n, body.horror .item.on .tag { color: #ff3b2a; }
+
+  /* аватар */
+  .ava { border-radius: 50%; background: #fff; object-fit: cover; display: block; }
+  .top .who .ava { width: 26px; height: 26px; }
+  .copy .ava { width: 84px; height: 84px; margin-bottom: 20px; box-shadow: 0 0 0 2px var(--ink), 0 0 0 3px var(--amber); }
+
+  /* Silence: шумомер */
+  .lore p { max-width: 46ch; }
+  .meter { margin-top: 24px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: rgba(235, 229, 214, .04); }
+  .meter .row { display: flex; justify-content: space-between; color: var(--dim); }
+  .meter .state { color: var(--amber); }
+  .meter .track { height: 6px; margin: 10px 0; border-radius: 3px; background: rgba(235, 229, 214, .12); overflow: hidden; }
+  .meter .track i { display: block; height: 100%; width: 100%; background: var(--amber); transform-origin: 0 50%; transform: scaleX(0); }
+  .meter .tip { color: var(--dim); text-transform: none; letter-spacing: 0; font-size: 12px; }
+  body.horror .meter .state { color: #ff3b2a; }
+  body.horror .meter .track i { background: #ff2a1a; }
+  body.horror h2 { text-shadow: 2px 0 #ff2a1a66, -2px 0 #0008; }
+
+  /* контакт */
+  .end { flex-direction: column; justify-content: flex-end; text-align: center; padding-bottom: 96px; }
+  .end .copy { width: min(100%, 640px); }
+  .end .eyebrow { justify-content: center; }
+  .end .eyebrow::before { display: none; }
+  .end p { margin: 0 auto; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 14px; margin-top: 30px;
+    padding: 18px 26px; border-radius: 999px; text-decoration: none;
+    background: var(--amber); color: var(--ink);
+    font: 500 15px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase;
+    transition: transform .2s, background .2s;
+  }
+  .btn:hover, .btn:focus-visible { transform: translateY(-2px); background: var(--bone); }
+  .btn svg { width: 16px; height: 16px; }
+  footer { position: absolute; left: var(--pad); right: var(--pad); bottom: 24px; display: flex; justify-content: space-between; color: var(--dim); z-index: 2; }
+
+  :focus-visible { outline: 2px solid var(--amber); outline-offset: 4px; border-radius: 4px; }
+
+  /* телефон и узкие окна: карточка сверху, текст снизу */
+  @media (max-width: 860px) {
+    .rail { display: none; }
+    .bar { display: block; }
+  }
+  @media (max-aspect-ratio: 9/10) {
+    body { font-size: 16px; }
+    .top { padding: 16px var(--pad); }
+    .s { align-items: flex-end; padding: 80px var(--pad) 34px; }
+    .copy, .hero .copy { width: 100%; }
+    .copy .eyebrow { margin-bottom: 14px; }
+    h2 { font-size: clamp(26px, 8vw, 40px); margin-bottom: 16px; }
+    .hero { flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 18px; }
+    .hero h1 { top: 36%; }
+    .hero .hint { align-items: flex-start; text-align: left; }
+    .item { padding: 11px 0; grid-template-columns: 2.6em 1fr auto; }
+    .item .d { font-size: 14px; line-height: 1.35; }
+    .code { display: none; }
+    .stats { margin-top: 18px; padding-top: 14px; }
+    .copy .ava { width: 60px; height: 60px; margin-bottom: 12px; }
+    .meter { margin-top: 14px; padding: 10px 12px; }
+    .end { padding-bottom: 76px; }
+    .btn { margin-top: 22px; }
+    footer { bottom: 18px; }
+  }
+  @media (max-aspect-ratio: 9/10) and (max-height: 740px) {
+    .item .d { display: none; }
+    .copy .ava { display: none; }
+    .lore p + p { display: none; }
+    .meter .tip { display: none; }
+    .copy p + p { margin-top: 8px; }
+    .item { padding: 13px 0; }
+  }
+  /* низкое широкое окно: телефон в горизонтали, узкая панель */
+  @media (min-aspect-ratio: 9/10) and (max-height: 560px) {
+    body { font-size: 14px; }
+    .top { padding: 12px var(--pad); }
+    .s { padding: 56px var(--pad) 22px; }
+    .copy, .hero .copy { width: min(44vw, 520px); }
+    .copy .eyebrow { margin-bottom: 10px; }
+    h2 { font-size: clamp(20px, 3.6vw, 34px); margin-bottom: 12px; }
+    .hero .lead { font-size: 16px; }
+    .item { padding: 8px 0; }
+    .item .t { font-size: 16px; }
+    .item .d { display: none; }
+    .code { display: none; }
+    .copy .ava { display: none; }
+    .lore p + p { display: none; }
+    .meter { margin-top: 10px; padding: 8px 10px; }
+    .meter .tip { display: none; }
+    .stats { margin-top: 12px; padding-top: 10px; }
+    .stats b { font-size: 26px; }
+    .ticker { padding: 10px 0; }
+    .end { padding-bottom: 44px; }
+    .btn { margin-top: 14px; padding: 13px 20px; font-size: 13px; }
+    footer { bottom: 12px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero .hint .k::before, .ticker div, .code i { animation: none; }
+    * { transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="glow" aria-hidden="true"></div>
+<canvas id="gl" aria-hidden="true"></canvas>
+<div class="grain" aria-hidden="true"></div>
+<div class="bar" aria-hidden="true"></div>
+
+<header class="top mono">
+  <a class="who" href="#s0"><img class="ava" data-ava alt="">AmoralTiny</a>
+  <a class="tg" href="https://t.me/sappfired" target="_blank" rel="noopener">@sappfired</a>
+</header>
+
+<ul class="rail mono" aria-label="Разделы">
+  <li><a href="#s0"><span>Визитка</span></a></li>
+  <li><a href="#s1"><span>Кто я</span></a></li>
+  <li><a href="#s2"><span>Чем занимаюсь</span></a></li>
+  <li><a href="#s3"><span>Что у меня есть</span></a></li>
+  <li><a href="#s4"><span>Silence</span></a></li>
+  <li><a href="#s5"><span>Связь</span></a></li>
+</ul>
+
+<main>
+  <section class="s hero" id="s0">
+    <h1>Amoral<br>Tiny</h1>
+    <div class="copy">
+      <p class="eyebrow mono">Живая визитка</p>
+      <p class="lead">Делаю проекты вместе с ИИ. Учу Python и C++.</p>
+    </div>
+    <div class="hint mono">
+      <span class="k" data-touch="Проведи по карточке">Потяни карточку</span>
+      <span>Листай вниз — она раскроется</span>
+    </div>
+  </section>
+
+  <section class="s" id="s1">
+    <div class="copy">
+      <img class="ava" data-ava alt="Аватар AmoralTiny">
+      <p class="eyebrow mono">01 / Кто я</p>
+      <h2>Знаю мало. Хочу много.</h2>
+      <p>Я <b>AmoralTiny</b>. В этой сфере я новичок и пока почти ничего не знаю. Зато очень хочу разобраться.</p>
+      <p>Цель простая: <b>выжать из ИИ максимум</b> и делать с ним хорошие проекты.</p>
+      <ul class="stats">
+        <li><b>2</b><span class="mono">языка учу</span></li>
+        <li><b>4</b><span class="mono">проекта</span></li>
+        <li><b>1</b><span class="mono">мод на проверке</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="ticker" aria-hidden="true"><div>
+    <span>ИИ</span><span>Python</span><span>C++</span><span>Silence</span><span>Сайты</span><span>ИИ</span><span>Python</span><span>C++</span><span>Silence</span><span>Сайты</span>
+    <span>ИИ</span><span>Python</span><span>C++</span><span>Silence</span><span>Сайты</span><span>ИИ</span><span>Python</span><span>C++</span><span>Silence</span><span>Сайты</span>
+  </div></div>
+
+  <section class="s" id="s2">
+    <div class="copy">
+      <p class="eyebrow mono">02 / Чем занимаюсь</p>
+      <h2>Три слоя одной карточки</h2>
+      <ul class="list">
+        <li class="item" data-card="0" tabindex="0">
+          <span class="n mono">01</span><span class="t">ИИ</span><span class="tag mono">в работе</span>
+          <span class="d">Собираю проекты вместе с нейросетями и учусь брать от них максимум.</span>
+        </li>
+        <li class="item" data-card="1" tabindex="0">
+          <span class="n mono">02</span><span class="t">Python</span><span class="tag mono">учу</span>
+          <span class="d">Изучаю язык.</span>
+        </li>
+        <li class="item" data-card="2" tabindex="0">
+          <span class="n mono">03</span><span class="t">C++</span><span class="tag mono">учу</span>
+          <span class="d">Изучаю язык.</span>
+        </li>
+      </ul>
+      <pre class="code" data-lang="ИИ" aria-hidden="true"><code></code><i></i></pre>
+    </div>
+  </section>
+
+  <section class="s" id="s3">
+    <div class="copy">
+      <p class="eyebrow mono">03 / Что у меня есть</p>
+      <h2>Работы</h2>
+      <ul class="list">
+        <li class="item" data-card="0" tabindex="0">
+          <span class="n mono">01</span><span class="t">Silence</span><span class="tag mono live">верификация</span>
+          <span class="d">Хоррор-мод для Minecraft. Сейчас проходит верификацию.</span>
+        </li>
+        <li class="item" data-card="1" tabindex="0">
+          <span class="n mono">02</span><span class="t">Конспекты и шпаргалки</span><span class="tag mono">сайт</span>
+          <span class="d">Сайт для учёбы: конспекты и шпаргалки в одном месте.</span>
+        </li>
+        <li class="item" data-card="2" tabindex="0">
+          <span class="n mono">03</span><span class="t">Сайт для профориентации</span><span class="tag mono">доверили</span>
+          <span class="d">Мне доверили сделать этот сайт.</span>
+        </li>
+        <li class="item" tabindex="0">
+          <span class="n mono">04</span><span class="t">Этот сайт</span><span class="tag mono">сайт</span>
+          <span class="d">Визитка, которая сейчас на экране.</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="ticker rev" aria-hidden="true"><div>
+    <span>Знаю мало</span><span>Хочу много</span><span>Учусь</span><span>Делаю</span><span>Знаю мало</span><span>Хочу много</span><span>Учусь</span><span>Делаю</span>
+    <span>Знаю мало</span><span>Хочу много</span><span>Учусь</span><span>Делаю</span><span>Знаю мало</span><span>Хочу много</span><span>Учусь</span><span>Делаю</span>
+  </div></div>
+
+  <section class="s" id="s4">
+    <div class="copy lore">
+      <p class="eyebrow mono">04 / Мод · Silence</p>
+      <h2>Он слышит всё</h2>
+      <p>Когда-то он был обычным человеком, но жестокие эксперименты навсегда изменили его. Теперь это существо лишено зрения, но его <b>слух обострён до предела</b>.</p>
+      <p>В мире Silence ваш главный враг — каждый неосторожный шаг и лишний звук. Затаите дыхание, исследуйте лор и постарайтесь выжить: в темноте он слышит абсолютно всё.</p>
+      <div class="meter" aria-hidden="true">
+        <div class="row mono"><span>Шум</span><span class="state">тихо</span></div>
+        <div class="track"><i></i></div>
+        <p class="tip">Попробуйте не шуметь: чем быстрее двигаете курсор или листаете, тем громче.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="s end" id="s5">
+    <div class="copy">
+      <p class="eyebrow mono">05 / Связь</p>
+      <h2>Напиши мне</h2>
+      <p>Проекты, идеи, вопросы — всё в Telegram.</p>
+      <a class="btn" href="https://t.me/sappfired" target="_blank" rel="noopener">
+        Telegram · @sappfired
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 13 13 3M5 3h8v8"/></svg>
+      </a>
+    </div>
+    <footer class="mono"><span>AmoralTiny</span><span>ИИ · Python · C++</span></footer>
+  </section>
+</main>
+
+<script>
+  // аватар хранится один раз и подставляется во все места
+  window.AVA = "data:image/jpeg;base64,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";
+  document.querySelectorAll('[data-ava]').forEach(function (e) { e.src = window.AVA; });
+  document.getElementById('fav').href = window.AVA;
+</script>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js';
+
+const INK = '#0b0a08', INK_CARD = '#131210', BONE = '#ebe5d6', AMBER = '#ffa51f';
+const PI = Math.PI, TAU = PI * 2;
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const smooth = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const coarse = matchMedia('(pointer: coarse)').matches;
+if (coarse) document.querySelectorAll('[data-touch]').forEach(e => e.textContent = e.dataset.touch);
+
+/* ---------- сцена ---------- */
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 50);
+camera.position.z = 8;
+const VIEW_H = 2 * 8 * Math.tan(THREE.MathUtils.degToRad(35 / 2));
+let viewW = VIEW_H, portrait = false;
+
+// окружение для бликов собирается кодом, без внешних картинок
+(function buildEnv() {
+  const s = new THREE.Scene();
+  s.background = new THREE.Color(0x060605);
+  const panel = (hex, power, w, h, pos) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(power), side: THREE.DoubleSide }));
+    m.position.set(...pos); m.lookAt(0, 0, 0); s.add(m);
+  };
+  panel(0xffffff, 5, 7, 2.2, [0, 6, 3]);
+  panel(0xffa51f, 5, 2.2, 7, [-7, 0, 2]);
+  panel(0xffffff, 2.2, 3, 3, [6, 1.5, 4]);
+  panel(0xffe2b0, 1.2, 9, 1.2, [0, -6, 3]);
+  panel(0xffffff, 1.5, 4, 4, [0, 1, -8]);
+  const pm = new THREE.PMREMGenerator(renderer);
+  scene.environment = pm.fromScene(s, 0.05).texture;
+  pm.dispose();
+})();
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+const key = new THREE.DirectionalLight(0xffffff, 1.25);
+key.position.set(2, 4, 6); scene.add(key);
+const follow = new THREE.PointLight(0xffa51f, 5, 12, 2);   // янтарный свет идёт за курсором
+follow.position.set(0, 0, 3); scene.add(follow);
+
+/* ---------- кубики на фоне: глубина и отсылка к Minecraft ---------- */
+const VOX = coarse ? 70 : 160;
+const voxMat = new THREE.MeshStandardMaterial({ roughness: .75, metalness: 0, envMapIntensity: .5 });
+const vox = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), voxMat, VOX);
+const voxData = [], dummy = new THREE.Object3D(), tmpColor = new THREE.Color();
+{
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < VOX; i++) {
+    const z = -1.6 - rnd() * 9;
+    voxData.push({ x: (rnd() * 2 - 1) * (5 + -z * 0.9), y: (rnd() * 2 - 1) * 8, z, s: 0.07 + rnd() * rnd() * 0.42,
+      rx: rnd() * 6, ry: rnd() * 6, vr: (rnd() - .5) * 0.5, drift: 0.05 + rnd() * 0.12, hot: rnd() < 0.09 });
+    vox.setColorAt(i, tmpColor.set(voxData[i].hot ? 0xffa51f : 0x2b2720));
+  }
+}
+vox.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+scene.add(vox);
+
+/* ---------- текстуры граней рисуются на canvas ---------- */
+const TW = 1200, TH = 720;
+const FONT_D = '"Unbounded", "Arial Black", "Segoe UI", sans-serif';
+const FONT_M = '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
+const faces = [];
+const avatar = new Image();
+
+function makeFace(draw) {
+  const c = document.createElement('canvas'); c.width = TW; c.height = TH;
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const f = { tex, redraw() { const x = c.getContext('2d'); x.clearRect(0, 0, TW, TH); draw(x); tex.needsUpdate = true; } };
+  f.redraw(); faces.push(f); return f;
+}
+function bg(x, fill, fg) {
+  x.fillStyle = fill; x.fillRect(0, 0, TW, TH);
+  x.save(); x.globalAlpha = .22; x.strokeStyle = fg; x.lineWidth = 2;
+  x.beginPath(); x.roundRect(30, 30, TW - 60, TH - 60, 34); x.stroke(); x.restore();
+}
+function mono(x, text, px, py, color, align = 'left', size = 24) {
+  x.font = `500 ${size}px ${FONT_M}`; x.fillStyle = color; x.textAlign = align; x.textBaseline = 'alphabetic';
+  if ('letterSpacing' in x) x.letterSpacing = '3px';
+  x.fillText(text.toUpperCase(), px, py);
+  if ('letterSpacing' in x) x.letterSpacing = '0px';
+}
+function big(x, text, px, py, color, size, maxW = TW - 150) {
+  x.textAlign = 'left'; x.textBaseline = 'alphabetic'; x.fillStyle = color;
+  if ('letterSpacing' in x) x.letterSpacing = `${-size * .035}px`;
+  x.font = `800 ${size}px ${FONT_D}`;
+  const w = x.measureText(text).width;
+  if (w > maxW) x.font = `800 ${Math.floor(size * maxW / w)}px ${FONT_D}`;
+  x.fillText(text, px, py);
+  const end = px + Math.min(w, maxW);
+  if ('letterSpacing' in x) x.letterSpacing = '0px';
+  return end;
+}
+const L = 78, Rt = TW - 78, TOP = 104, BOT = TH - 84;
+
+const fIdentity = makeFace(x => {
+  bg(x, BONE, INK);
+  x.fillStyle = AMBER; x.beginPath(); x.roundRect(L, 70, 46, 46, 10); x.fill();
+  mono(x, 'Живая визитка', L + 66, TOP, INK);
+  mono(x, '№ 001', Rt, TOP, INK, 'right');
+  big(x, 'Amoral', L - 6, 392, INK, 168);
+  const e = big(x, 'Tiny', L - 6, 548, INK, 168);
+  x.fillStyle = AMBER; x.beginPath(); x.arc(e + 34, 524, 20, 0, TAU); x.fill();
+  mono(x, 'ИИ / Python / C++', L, BOT + 20, INK);
+  mono(x, '@sappfired', Rt, BOT + 20, INK, 'right');
+  if (avatar.complete && avatar.naturalWidth) {            // аватар как карандашный набросок на бумаге карточки
+    x.save(); x.globalCompositeOperation = 'multiply';
+    x.beginPath(); x.roundRect(790, 170, 330, 330, 26); x.clip();
+    x.drawImage(avatar, 790, 170, 330, 330); x.restore();
+    x.save(); x.globalAlpha = .25; x.strokeStyle = INK; x.lineWidth = 2; x.beginPath(); x.roundRect(790, 170, 330, 330, 26); x.stroke(); x.restore();
+  }
+});
+avatar.onload = () => fIdentity.redraw();
+if (window.AVA) avatar.src = window.AVA;
+const skill = (num, label, note, fill, fg, accent) => makeFace(x => {
+  bg(x, fill, fg);
+  mono(x, `Слой ${num}`, L, TOP, accent);
+  mono(x, 'Чем занимаюсь', Rt, TOP, fg, 'right');
+  big(x, label, L - 8, 470, fg, 250);
+  mono(x, note, L, BOT + 20, fg);
+});
+const work = (num, l1, l2, note, fill, fg, accent) => makeFace(x => {
+  bg(x, fill, fg);
+  mono(x, `Работа ${num}`, L, TOP, accent);
+  mono(x, 'AmoralTiny', Rt, TOP, fg, 'right');
+  big(x, l1, L - 5, 384, fg, 118);
+  big(x, l2, L - 5, 518, fg, 118);
+  x.fillStyle = accent; x.beginPath(); x.arc(L + 9, BOT + 11, 9, 0, TAU); x.fill();
+  mono(x, note, L + 34, BOT + 20, fg);
+});
+const fAI = skill('01', 'ИИ', 'Проекты вместе с нейросетями', BONE, INK, INK);
+const fPy = skill('02', 'Python', 'Учу язык', AMBER, INK, INK);
+const fCpp = skill('03', 'C++', 'Учу язык', INK_CARD, BONE, AMBER);
+const fContact = makeFace(x => {
+  bg(x, BONE, INK);
+  x.fillStyle = AMBER; x.beginPath(); x.roundRect(L, 70, 46, 46, 10); x.fill();
+  mono(x, 'Связь', L + 66, TOP, INK);
+  mono(x, 'Telegram', Rt, TOP, INK, 'right');
+  big(x, '@sappfired', L - 6, 440, INK, 150);
+  mono(x, 'AmoralTiny', L, BOT + 20, INK);
+  mono(x, 'Пишите', Rt, BOT + 20, INK, 'right');
+});
+const fW1 = work('01', 'Silence', 'хоррор-мод', 'Minecraft / проходит верификацию', BONE, INK, INK);
+const fW2 = work('02', 'Конспекты', 'шпаргалки', 'Сайт для учёбы', AMBER, INK, INK);
+const fW3 = work('03', 'Сайт для', 'профориентации', 'Доверили сделать', INK_CARD, BONE, AMBER);
+const fWho = makeFace(x => {
+  bg(x, INK_CARD, BONE);
+  mono(x, 'Кто я', L, TOP, AMBER);
+  mono(x, 'AmoralTiny', Rt, TOP, BONE, 'right');
+  big(x, 'Знаю мало.', L - 5, 340, BONE, 118);
+  big(x, 'Хочу много.', L - 5, 474, AMBER, 118);
+  mono(x, 'Новичок / учусь', L, BOT + 20, BONE);
+});
+
+// шрифты приходят позже первого кадра — перерисовать грани, когда загрузятся
+if (document.fonts) {
+  const redrawAll = () => faces.forEach(f => f.redraw());
+  Promise.all([
+    document.fonts.load(`800 100px "Unbounded"`, 'Aя'),
+    document.fonts.load(`500 24px "JetBrains Mono"`, 'Aя'),
+  ]).then(redrawAll).catch(() => {});
+  document.fonts.ready.then(redrawAll).catch(() => {});
+}
+
+/* ---------- три слоя карточки ---------- */
+const CW = 1.8, CH = 1.08, CR = 0.075, CD = 0.03, BEV = 0.004;
+const shape = (() => {
+  const s = new THREE.Shape(), x = -CW / 2, y = -CH / 2, w = CW, h = CH, r = CR;
+  s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r); s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+})();
+const bodyGeo = new THREE.ExtrudeGeometry(shape, { depth: CD, bevelEnabled: true, bevelThickness: BEV, bevelSize: BEV, bevelSegments: 2, curveSegments: 12 });
+bodyGeo.translate(0, 0, -CD / 2);
+const faceGeo = new THREE.ShapeGeometry(shape, 12);
+{ // развёртка: текстура ложится ровно на всю грань
+  const p = faceGeo.attributes.position, uv = faceGeo.attributes.uv;
+  for (let i = 0; i < p.count; i++) uv.setXY(i, (p.getX(i) + CW / 2) / CW, (p.getY(i) + CH / 2) / CH);
+}
+const faceMat = tex => new THREE.MeshPhysicalMaterial({ map: tex, roughness: .62, metalness: 0, clearcoat: .55, clearcoatRoughness: .28, envMapIntensity: .55 });
+
+const root = new THREE.Group(), spin = new THREE.Group();
+root.add(spin); scene.add(root);
+const cards = [
+  { body: BONE, front: fIdentity, back: fW1 },
+  { body: AMBER, front: fPy, back: fW2 },
+  { body: INK_CARD, front: fCpp, back: fWho },
+].map(def => {
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(bodyGeo, new THREE.MeshPhysicalMaterial({ color: def.body, roughness: .5, clearcoat: .5, clearcoatRoughness: .3, envMapIntensity: .7 })));
+  const front = new THREE.Mesh(faceGeo, faceMat(def.front.tex));
+  front.position.z = CD / 2 + BEV + 0.0012;
+  const back = new THREE.Mesh(faceGeo, faceMat(def.back.tex));
+  back.position.z = -(CD / 2 + BEV + 0.0012); back.rotation.y = PI;
+  g.add(front, back); spin.add(g);
+  return { g, front: front.material, back: back.material, lift: 0 };
+});
+
+/* ---------- состояния по разделам ----------
+   0 визитка · 1 оборот · 2 три слоя · 3 веер работ · 4 карточка Silence · 5 снова одна карточка
+   Между соседними состояниями карточка делает пол-оборота. */
+const N = 6;
+const FLIP = [0, PI, TAU, PI * 3, PI * 3, PI * 4];
+const TILT_Y = [-0.34, 0.3, 0.8, 0.0, -0.3, 0.24];
+const TILT_X = [0.12, 0.08, 0.2, 0.0, 0.1, 0.1];
+
+function local(state, i) {          // место слоя внутри карточки
+  const o = i - 1;
+  if (state === 2) return { x: 0, y: -o * 0.1, z: -o * 0.86, rz: 0 };
+  if (state === 3) return portrait
+    ? { x: o * 0.06, y: -o * 0.66, z: o * 0.03, rz: o * 0.035 }
+    : { x: -o * 1.48, y: -Math.abs(o) * 0.08, z: -o * 0.03, rz: o * 0.1 };
+  if (state === 4) return { x: i * 0.09, y: i * 0.07, z: i * 0.05, rz: -i * 0.035 };   // Silence сверху, остальные выглядывают
+  return { x: 0, y: 0, z: -i * 0.046, rz: 0 };
+}
+function place(state) {             // место всей карточки на экране
+  return slots[state] || { x: 0, y: 0, s: 1 };
+}
+
+/* ---------- прокрутка → прогресс ---------- */
+const secs = [...document.querySelectorAll('.s')];
+const railLinks = [...document.querySelectorAll('.rail a')];
+const bar = document.querySelector('.bar');
+let tops = [], pTarget = 0, p = 0, lastActive = -1;
+// габариты карточки в каждом состоянии (ширина, высота в единицах сцены, с запасом на наклон)
+const EXTENT = { side: [[1.9, 1.2], [1.9, 1.2], [2.5, 1.35], [4.9, 1.6], [2.2, 1.4], [1.9, 1.2]], stack: [[1.9, 1.2], [1.9, 1.2], [2.5, 1.35], [2.0, 2.5], [2.2, 1.4], [1.9, 1.2]] };
+const CAP = { side: [1.9, 1.7, 1.5, 1.3, 1.8, 1.5], stack: [1.4, 1.3, 1.15, 0.9, 1.3, 1.3] };
+let slots = [];
+function measure() {
+  tops = secs.map(s => s.offsetTop);
+  // для каждого раздела: прямоугольник, свободный от текста → туда вписывается карточка
+  const w = innerWidth, h = innerHeight, u = VIEW_H / h, headH = 58, gap = 14;
+  slots = secs.map((sec, i) => {
+    const sr = sec.getBoundingClientRect(), cr = sec.querySelector('.copy').getBoundingClientRect();
+    const top = cr.top - sr.top, right = cr.right - sr.left;
+    let x0, x1, y0, y1;                       // свободная область в пикселях окна
+    if (portrait || i === N - 1) { x0 = gap; x1 = w - gap; y0 = headH; y1 = Math.min(h, top) - gap; }
+    else if (i === 0) { x0 = gap; x1 = w - gap; y0 = headH; y1 = Math.min(h - gap, Math.max(top - gap, h * 0.6)); }
+    else { x0 = right + gap * 2; x1 = w - gap - (w > 860 ? 70 : 0); y0 = headH; y1 = h - gap; }
+    const fw = Math.max(40, x1 - x0) * u, fh = Math.max(40, y1 - y0) * u;
+    const [ew, eh] = EXTENT[portrait ? 'stack' : 'side'][i];
+    const s = Math.min(fw / ew, fh / eh, CAP[portrait ? 'stack' : 'side'][i]);
+    return { x: ((x0 + x1) / 2 - w / 2) * u, y: (h / 2 - (y0 + y1) / 2) * u, s };
+  });
+}
+function readScroll() {
+  const y = scrollY;
+  for (let i = 0; i < N - 1; i++) {
+    if (y < tops[i + 1]) return i + smooth(0.1, 0.9, (y - tops[i]) / (tops[i + 1] - tops[i]));
+  }
+  return N - 1;
+}
+
+/* ---------- живая карточка: тянуть, крутить, отпускать ---------- */
+const ptr = { x: 0, y: 0 };
+let dragging = false, lastX = 0, lastY = 0, lastT = 0;
+let noise = 0, noiseIn = 0, moveX = 0, moveY = 0, lastScroll = scrollY, noiseLabel = '';
+const meterBar = document.querySelector('.meter .track i'), meterState = document.querySelector('.meter .state');
+let uy = 0, uvy = 0, ux = 0, snapFull = false;
+addEventListener('pointerdown', e => {
+  if (e.target.closest('a, button, .copy, .rail, .top')) return;
+  dragging = true; lastX = e.clientX; lastY = e.clientY; lastT = performance.now(); uvy = 0; snapFull = false;
+  document.body.classList.add('dragging');
+});
+addEventListener('pointermove', e => {
+  ptr.x = (e.clientX / innerWidth) * 2 - 1; ptr.y = -((e.clientY / innerHeight) * 2 - 1);
+  noiseIn += Math.hypot(e.clientX - moveX, e.clientY - moveY); moveX = e.clientX; moveY = e.clientY;
+  if (!dragging) return;
+  const now = performance.now(), dt = Math.max(1, now - lastT) / 1000;
+  const dx = (e.clientX - lastX) * 0.009, dy = (e.clientY - lastY) * 0.005;
+  uy += dx; ux = clamp(ux + dy, -0.7, 0.7);
+  uvy = lerp(uvy, dx / dt, 0.5);
+  lastX = e.clientX; lastY = e.clientY; lastT = now;
+});
+const release = () => { if (!dragging) return; dragging = false; document.body.classList.remove('dragging'); uvy = clamp(uvy, -14, 14); };
+addEventListener('pointerup', release); addEventListener('pointercancel', release); addEventListener('blur', release);
+
+// пункт списка приподнимает свой слой
+let active = -1;
+document.querySelectorAll('.item').forEach(el => {
+  const i = el.dataset.card === undefined ? 9 : +el.dataset.card;
+  const on = () => { active = i; mark(); }, off = () => { if (active === i) { active = -1; mark(); } };
+  const mark = () => document.querySelectorAll('.item').forEach(o => o.classList.toggle('on', o === el && active === i));
+  el.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') on(); });
+  el.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') off(); });
+  el.addEventListener('click', () => (active === i && coarse ? off() : on()));
+  el.addEventListener('focus', on); el.addEventListener('blur', off);
+});
+
+// живой код: пункт списка «Чем занимаюсь» печатает свой пример
+const codeBox = document.querySelector('.code'), codeEl = codeBox.querySelector('code');
+const SNIP = [
+  ['ИИ', '$ ai "собери мне сайт-визитку"\n\n✓ готово — ты сейчас на нём'],
+  ['Python', 'name = "AmoralTiny"\nprint(f"Привет, я {name}")'],
+  ['C++', '#include <iostream>\n\nint main() {\n  std::cout << "Привет, я AmoralTiny";\n}'],
+];
+let codeIdx = -1, codeN = 0;
+function setCode(i) { if (i === codeIdx) return; codeIdx = i; codeN = 0; codeBox.dataset.lang = SNIP[i][0]; }
+setCode(0);
+document.querySelectorAll('#s2 .item').forEach(el => {
+  const go = () => setCode(+el.dataset.card);
+  el.addEventListener('pointerenter', go); el.addEventListener('click', go); el.addEventListener('focus', go);
+});
+
+/* ---------- размер ---------- */
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  viewW = VIEW_H * camera.aspect;
+  portrait = camera.aspect < 0.9;
+  measure();
+}
+addEventListener('resize', resize); resize();
+addEventListener('load', measure);
+if (document.fonts) document.fonts.ready.then(measure).catch(() => {});
+setTimeout(measure, 600);
+
+/* ---------- кадр ---------- */
+const glowEl = document.documentElement;
+let prev = performance.now(), time = 0, prevTarget = 0, horror = 0, horrorShown = 0, horrorClass = false;
+function frame(now) {
+  const dt = Math.min(0.05, (now - prev) / 1000); prev = now; time += dt;
+
+  pTarget = readScroll();
+  if (Math.abs(pTarget - prevTarget) > 0.0015) snapFull = true;
+  prevTarget = pTarget;
+  p = reduced ? pTarget : lerp(p, pTarget, 1 - Math.exp(-dt * 7));
+  const s0 = clamp(Math.floor(p), 0, N - 2), s1 = s0 + 1, f = clamp(p - s0, 0, 1);
+
+  // грани меняются в те моменты, когда они отвёрнуты от зрителя
+  const front0 = p < 1 ? fIdentity : p < 3.5 ? fAI : fContact;
+  if (cards[0].front.map !== front0.tex) cards[0].front.map = front0.tex;
+  const back2 = p < 2 ? fWho : fW3;
+  if (cards[2].back.map !== back2.tex) cards[2].back.map = back2.tex;
+
+  // пользовательский поворот с инерцией и доводкой к ближайшей стороне
+  if (!dragging) {
+    const step = snapFull ? TAU : PI;
+    const target = Math.round((uy + uvy * 0.18) / step) * step;
+    uvy += ((target - uy) * 60 - uvy * 11) * dt;
+    uy += uvy * dt;
+    ux = lerp(ux, 0, 1 - Math.exp(-dt * 6));
+  }
+
+  const A = place(s0), B = place(s1);
+  root.position.set(lerp(A.x, B.x, f), lerp(A.y, B.y, f) + (reduced ? 0 : Math.sin(time * 0.9) * 0.035), 0);
+  root.scale.setScalar(lerp(A.s, B.s, f));
+  const tiltIdle = reduced ? 0 : Math.sin(time * 0.6) * 0.04;
+  spin.rotation.y = lerp(FLIP[s0] + TILT_Y[s0], FLIP[s1] + TILT_Y[s1], f) + uy + ptr.x * 0.16 + tiltIdle;
+  spin.rotation.x = lerp(TILT_X[s0], TILT_X[s1], f) + ux - ptr.y * 0.1;
+
+  const facing = Math.cos(spin.rotation.y) >= 0 ? 1 : -1;
+  const listOpen = Math.max(smooth(1.6, 2, p) - smooth(3.05, 3.5, p), 0);
+  cards.forEach((c, i) => {
+    const a = local(s0, i), b = local(s1, i);
+    c.lift = lerp(c.lift, active === i ? listOpen : 0, 1 - Math.exp(-dt * 9));
+    c.g.position.set(lerp(a.x, b.x, f), lerp(a.y, b.y, f) + c.lift * 0.13, lerp(a.z, b.z, f) + c.lift * 0.22 * facing);
+    c.g.rotation.z = lerp(a.rz, b.rz, f);
+    c.g.scale.setScalar(1 + c.lift * 0.06);
+  });
+
+  follow.position.set(root.position.x + ptr.x * 3, root.position.y + ptr.y * 2.2, 2.6);
+
+  // хоррор-режим: пункт с модом гасит тёплый свет и включает красное мерцание
+  // шумомер Silence: быстрые движения и прокрутка = шум; в тишине он затихает
+  const inSilence = Math.abs(p - 4) < 0.3;
+  const scrolled = Math.abs(scrollY - lastScroll); lastScroll = scrollY;
+  noise = clamp(noise + (inSilence ? noiseIn / 1100 + scrolled / 2600 : 0) - dt * (inSilence ? 0.4 : 1.5), 0, 1);
+  noiseIn = 0;
+  meterBar.style.transform = `scaleX(${noise.toFixed(3)})`;
+  const label = noise < 0.3 ? 'тихо' : noise < 0.7 ? 'он прислушивается' : 'он слышит';
+  if (label !== noiseLabel) { noiseLabel = label; meterState.textContent = label; }
+  const loud = inSilence && noise > 0.7;
+  const horrorOn = (active === 0 && p > 2.55 && p < 3.45) || loud;
+  horror = lerp(horror, Math.max(active === 0 && p > 2.55 && p < 3.45 ? 1 : 0, inSilence ? smooth(0.25, 0.9, noise) : 0), 1 - Math.exp(-dt * 5));
+  if (horrorOn !== horrorClass) { horrorClass = horrorOn; document.body.classList.toggle('horror', horrorOn); }
+  const flick = reduced ? 1 : 0.72 + 0.28 * Math.sin(time * 31) * Math.sin(time * 7.3);
+  follow.color.setRGB(1, lerp(0.38, 0.03, horror), lerp(0.02, 0.01, horror));
+  follow.intensity = lerp(5, 16 * flick, horror);
+  key.intensity = lerp(1.25, 0.35, horror);
+  voxMat.color.setRGB(1, lerp(1, 0.25, horror), lerp(1, 0.2, horror));
+  if (Math.abs(horror - horrorShown) > 0.004) {
+    horrorShown = horror;
+    glowEl.style.setProperty('--glow', `255, ${Math.round(lerp(165, 28, horror))}, ${Math.round(lerp(31, 18, horror))}`);
+  }
+  if (horror > 0.01) glowEl.style.setProperty('--glow-a', (lerp(0.14, 0.3 * flick, horror)).toFixed(3));
+  else if (horrorShown !== 0 || true) glowEl.style.setProperty('--glow-a', '.14');
+
+  // кубики: медленно дрейфуют вверх, сдвигаются с прокруткой и чуть уходят от курсора
+  for (let i = 0; i < VOX; i++) {
+    const v = voxData[i], depth = 1 / (1 + -v.z * 0.25);
+    let y = v.y + time * v.drift * (reduced ? 0 : 1) + p * 3.2 * depth;
+    y = ((y + 8) % 16 + 16) % 16 - 8;
+    dummy.position.set(v.x - ptr.x * 0.5 * depth, y - ptr.y * 0.3 * depth, v.z);
+    dummy.rotation.set(v.rx + time * v.vr, v.ry + time * v.vr * 0.7, 0);
+    dummy.scale.setScalar(v.s * (1 + horror * (v.hot ? 0.6 * flick : 0)));
+    dummy.updateMatrix(); vox.setMatrixAt(i, dummy.matrix);
+  }
+  vox.instanceMatrix.needsUpdate = true;
+
+  // печать кода
+  const full = SNIP[codeIdx][1];
+  if (codeN < full.length) { codeN = reduced ? full.length : Math.min(full.length, codeN + dt * 55); codeEl.textContent = full.slice(0, Math.floor(codeN)); }
+
+  // пятно света на фоне держится за карточкой
+  glowEl.style.setProperty('--gx', (50 + (root.position.x / viewW) * 100).toFixed(1) + '%');
+  glowEl.style.setProperty('--gy', (50 - (root.position.y / VIEW_H) * 100).toFixed(1) + '%');
+
+  const act = Math.round(p);
+  if (act !== lastActive) { lastActive = act; railLinks.forEach((a, i) => a.classList.toggle('on', i === act)); }
+  bar.style.transform = `scaleX(${(p / (N - 1)).toFixed(4)})`;
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
