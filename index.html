@@ -614,8 +614,8 @@ function local(state, i) {          // место слоя внутри карт
   const o = i - 1;
   if (state === 2) return { x: 0, y: -o * 0.1, z: -o * 0.86, rz: 0 };
   if (state === 3) return portrait
-    ? { x: o * 0.06, y: -o * 0.66, z: o * 0.03, rz: o * 0.035 }
-    : { x: -o * 1.48, y: -Math.abs(o) * 0.08, z: -o * 0.03, rz: o * 0.1 };
+    ? { x: o * 0.06, y: -o * 0.66, z: o * 0.08, rz: o * 0.035 }
+    : { x: -o * 1.48, y: -Math.abs(o) * 0.08, z: -o * 0.08, rz: o * 0.1 };
   if (state === 4) return { x: i * 0.09, y: i * 0.07, z: i * 0.05, rz: -i * 0.035 };   // Silence сверху, остальные выглядывают
   return { x: 0, y: 0, z: -i * 0.046, rz: 0 };
 }
@@ -760,10 +760,16 @@ function frame(now) {
   const listOpen = Math.max(smooth(1.6, 2, p) - smooth(3.05, 3.5, p), 0);
   cards.forEach((c, i) => {
     const a = local(s0, i), b = local(s1, i);
-    c.lift = lerp(c.lift, active === i ? listOpen : 0, 1 - Math.exp(-dt * 9));
-    c.g.position.set(lerp(a.x, b.x, f), lerp(a.y, b.y, f) + c.lift * 0.13, lerp(a.z, b.z, f) + c.lift * 0.22 * facing);
-    c.g.rotation.z = lerp(a.rz, b.rz, f);
-    c.g.scale.setScalar(1 + c.lift * 0.06);
+    // выбранная карточка поднимается вверх в своём слое (ни через кого не проходит), остальные темнеют
+    const k = 1 - Math.exp(-dt * 9), picked = active >= 0 && active <= 2;
+    c.lift = lerp(c.lift, active === i ? listOpen : 0, k);
+    c.dim = lerp(c.dim || 0, picked && active !== i ? listOpen : 0, k);
+    c.g.position.set(lerp(a.x, b.x, f), lerp(a.y, b.y, f) + c.lift * (portrait ? 0 : 0.3) - c.dim * 0.04, lerp(a.z, b.z, f));
+    c.g.rotation.z = lerp(a.rz, b.rz, f) * (1 - c.lift * 0.7);
+    c.g.scale.setScalar(1 + c.lift * 0.05 - c.dim * 0.03);
+    const shade = 1 - c.dim * 0.6, body = c.g.children[0].material;
+    if (!c.base) c.base = body.color.clone();
+    body.color.copy(c.base).multiplyScalar(shade); c.front.color.setScalar(shade); c.back.color.setScalar(shade);
   });
 
   follow.position.set(root.position.x + ptr.x * 3, root.position.y + ptr.y * 2.2, 2.6);
